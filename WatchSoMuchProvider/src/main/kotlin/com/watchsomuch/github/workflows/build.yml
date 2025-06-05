@@ -1,0 +1,79 @@
+name: Build
+
+on:
+  push:
+    branches: [ "master", "main" ]
+    paths-ignore:
+      - '*.md'
+  pull_request:
+    branches: [ "master", "main" ]
+    paths-ignore:
+      - '*.md'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        path: "src"
+
+    - name: Setup JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: 11
+        distribution: 'adopt'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+
+    - name: Access Secrets
+      env:
+        TMDB_API: ${{ secrets.TMDB_API }}
+        DUMP_API: ${{ secrets.DUMP_API }}
+        DUMP_KEY: ${{ secrets.DUMP_KEY }}
+        CRUNCHYROLL_BASIC_TOKEN: ${{ secrets.CRUNCHYROLL_BASIC_TOKEN }}
+        CRUNCHYROLL_REFRESH_TOKEN: ${{ secrets.CRUNCHYROLL_REFRESH_TOKEN }}
+      run: |
+        cd src
+        echo TMDB_API=$TMDB_API >> local.properties
+        echo DUMP_API=$DUMP_API >> local.properties  
+        echo DUMP_KEY=$DUMP_KEY >> local.properties
+        echo CRUNCHYROLL_BASIC_TOKEN=$CRUNCHYROLL_BASIC_TOKEN >> local.properties
+        echo CRUNCHYROLL_REFRESH_TOKEN=$CRUNCHYROLL_REFRESH_TOKEN >> local.properties
+
+    - name: Download CloudStream
+      run: |
+        cd src
+        curl -L -o android_app.apk https://github.com/recloudstream/cloudstream/releases/latest/download/app-universal-release.apk
+        
+    - name: Extract CloudStream
+      run: |
+        cd src  
+        unzip -q android_app.apk
+        cp classes.dex CloudStream.dex
+
+    - name: Build Plugins
+      run: |
+        cd src
+        chmod +x gradlew
+        ./gradlew make makePluginsJson
+        cp **/build/*.cs3 .
+        cp build/plugins.json .
+
+    - name: Push to builds
+      run: |
+        cd src
+        git config --global user.email "builds@ci.com"
+        git config --global user.name "ci-builds"
+        
+        git checkout --orphan builds
+        git rm -rf .
+        
+        cp *.cs3 . 2>/dev/null || :
+        cp plugins.json . 2>/dev/null || :
+        
+        git add .
+        git commit --allow-empty -m "Build $GITHUB_SHA" || exit 0
+        git push --force origin builds

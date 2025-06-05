@@ -1,0 +1,8 @@
+{
+  "name": "WatchSoMuch Plugin Repository",
+  "description": "CloudStream plugin for WatchSoMuch.to",
+  "manifestVersion": 1,
+  "pluginLists": [
+    "https://raw.githubusercontent.com/YOUR_USERNAME/watchsomuch-cloudstream-plugin/builds/plugins.json"
+  ]
+}
